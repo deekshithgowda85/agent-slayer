@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agent Slayer — Setup</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;600;700&display=swap');
+
+    :root {
+      /* VS Code core palette */
+      --vsc-bg:              #1e1e1e;
+      --vsc-sidebar:         #252526;
+      --vsc-panel:           #2d2d30;
+      --vsc-border:          #3e3e42;
+      --vsc-border-focus:    #007acc;
+      --vsc-input-bg:        #3c3c3c;
+      --vsc-hover:           #2a2d2e;
+      --vsc-selected:        #094771;
+      --vsc-selected-border: #007acc;
+      --vsc-text:            #cccccc;
+      --vsc-text-dim:        #8a8a8a;
+      --vsc-text-bright:     #d4d4d4;
+      --vsc-accent:          #007acc;
+      --vsc-accent-hover:    #1a8ad4;
+      --vsc-badge:           #4d4d4d;
+      --vsc-check:           #4ec9b0;  /* VS Code teal — editor variable color */
+      --vsc-success:         #4ec9b0;
+      --vsc-warn:            #ce9178;
+      --radius-sm:           3px;
+      --radius:              4px;
+      font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--vsc-bg);
+      color: var(--vsc-text);
+      min-height: 100vh;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    /* Thin top accent bar like VS Code title bar */
+    body::before {
+      content: '';
+      display: block;
+      height: 1px;
+      background: var(--vsc-accent);
+    }
+
+    .container {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 28px 32px 64px;
+    }
+
+    /* ── Header ── */
+    .header {
+      margin-bottom: 28px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--vsc-border);
+    }
+
+    .logo-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .logo-icon {
+      width: 28px;
+      height: 28px;
+      flex-shrink: 0;
+    }
+
+    .logo-text {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--vsc-text-bright);
+      letter-spacing: 0;
+    }
+
+    .version-badge {
+      font-size: 10px;
+      font-family: 'Consolas', 'Courier New', monospace;
+      color: var(--vsc-text-dim);
+      background: var(--vsc-badge);
+      padding: 1px 6px;
+      border-radius: 2px;
+      margin-left: 4px;
+    }
+
+    .header-desc {
+      font-size: 12px;
+      color: var(--vsc-text-dim);
+      line-height: 1.6;
+      font-family: 'Consolas', 'Courier New', monospace;
+    }
+
+    /* ── Section ── */
+    .section {
+      margin-bottom: 24px;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .section-num {
+      font-size: 10px;
+      font-family: 'Consolas', 'Courier New', monospace;
+      color: var(--vsc-text-dim);
+      min-width: 20px;
+    }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--vsc-text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+
+    .section-desc {
+      font-size: 11px;
+      font-family: 'Consolas', 'Courier New', monospace;
+      color: var(--vsc-text-dim);
+      margin-left: auto;
+      opacity: 0.7;
+    }
+
+    /* ── Option card grid ── */
+    .card-grid {
+      display: grid;
+      gap: 6px;
+    }
+
+    .card-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+    .card-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+    .card-grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+
+    .option-card {
+      background: var(--vsc-sidebar);
+      border: 1px solid var(--vsc-border);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      cursor: pointer;
+      transition: background 0.12s, border-color 0.12s;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      user-select: none;
+    }
+
+    .option-card:hover {
+      background: var(--vsc-hover);
+      border-color: #5a5a5a;
+    }
+
+    .option-card.selected {
+      background: #0d3a5c;
+      border-color: var(--vsc-selected-border);
+    }
+
+    .option-card .check {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--vsc-accent);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+      color: white;
+    }
+
+    .option-card.selected .check { display: flex; }
+
+    .card-logo {
+      width: 22px;
+      height: 22px;
+      flex-shrink: 0;
+    }
+
+    .card-name {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--vsc-text-bright);
+    }
+
+    .card-tag {
+      font-size: 10px;
+      font-family: 'Consolas', 'Courier New', monospace;
+      color: var(--vsc-text-dim);
+    }
+
+    /* ── Badge grid (multi-select) ── */
+    .badge-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .badge-card {
+      background: var(--vsc-sidebar);
+      border: 1px solid var(--vsc-border);
+      border-radius: var(--radius);
+      padding: 7px 12px;
+      cursor: pointer;
+      transition: background 0.12s, border-color 0.12s;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      user-select: none;
+    }
+
+    .badge-card:hover {
+      background: var(--vsc-hover);
+      border-color: #5a5a5a;
+    }
+
+    .badge-card.selected {
+      background: #0d3a5c;
+      border-color: var(--vsc-selected-border);
+    }
+
+    .badge-logo {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+    }
+
+    .badge-name {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--vsc-text-bright);
+    }
+
+    .badge-check {
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      background: var(--vsc-accent);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-size: 8px;
+      color: white;
+      margin-left: 2px;
+    }
+
+    .badge-card.selected .badge-check { display: flex; }
+
+    /* ── Toggle rows ── */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 9px 12px;
+      border: 1px solid var(--vsc-border);
+      border-radius: var(--radius);
+      margin-bottom: 5px;
+      background: var(--vsc-sidebar);
+      transition: background 0.12s;
+    }
+
+    .toggle-row:hover { background: var(--vsc-hover); }
+
+    .toggle-info .toggle-label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--vsc-text-bright);
+    }
+
+    .toggle-info .toggle-desc {
+      font-size: 11px;
+      font-family: 'Consolas', 'Courier New', monospace;
+      color: var(--vsc-text-dim);
+      margin-top: 1px;
+    }
+
+    .switch {
+      position: relative;
+      width: 36px;
+      height: 18px;
+      flex-shrink: 0;
+    }
+
+    .switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+
+    .slider {
+      position: absolute;
+      inset: 0;
+      background: var(--vsc-input-bg);
+      border-radius: 18px;
+      cursor: pointer;
+      border: 1px solid var(--vsc-border);
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .slider::before {
+      content: '';
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      left: 2px;
+      top: 2px;
+      background: #8a8a8a;
+      border-radius: 50%;
+      transition: transform 0.15s, background 0.15s;
+    }
+
+    input:checked + .slider {
+      background: #094771;
+      border-color: var(--vsc-accent);
+    }
+
+    input:checked + .slider::before {
+      transform: translateX(18px);
+      background: var(--vsc-accent);
+    }
+
+    /* ── Preview box ── */
+    .preview-box {
+      background: #1e1e1e;
+      border: 1px solid var(--vsc-border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 12px;
+      color: var(--vsc-text-dim);
+      position: relative;
+    }
+
+    /* Fake editor line numbers strip */
+    .preview-box::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 36px;
+      background: #252526;
+      border-right: 1px solid var(--vsc-border);
+      border-radius: var(--radius) 0 0 var(--radius);
+    }
+
+    .preview-inner {
+      padding-left: 44px;
+      position: relative;
+    }
+
+    .preview-line {
+      display: flex;
+      margin-bottom: 2px;
+      line-height: 1.7;
+    }
+
+    .line-num {
+      position: absolute;
+      left: -44px;
+      width: 36px;
+      text-align: right;
+      padding-right: 8px;
+      color: #4a4a4a;
+      font-size: 11px;
+      user-select: none;
+    }
+
+    .preview-key   { color: #9cdcfe; }   /* VS Code property color */
+    .preview-val   { color: #4ec9b0; }   /* VS Code type/teal */
+    .preview-str   { color: #ce9178; }   /* VS Code string/brown-orange */
+    .preview-comment { color: #6a9955; } /* VS Code comment green */
+    .preview-punct { color: #808080; }
+
+    /* ── Actions ── */
+    .actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-top: 28px;
+    }
+
+    .btn-install {
+      flex: 1;
+      padding: 8px 20px;
+      background: var(--vsc-accent);
+      border: 1px solid var(--vsc-accent);
+      border-radius: var(--radius);
+      color: white;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.12s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+    }
+
+    .btn-install:hover { background: var(--vsc-accent-hover); }
+    .btn-install:active { background: #005fa3; }
+
+    .btn-install.loading {
+      pointer-events: none;
+      opacity: 0.6;
+    }
+
+    .btn-skip {
+      padding: 8px 16px;
+      background: transparent;
+      border: 1px solid var(--vsc-border);
+      border-radius: var(--radius);
+      color: var(--vsc-text-dim);
+      font-size: 12px;
+      font-family: inherit;
+      cursor: pointer;
+      transition: border-color 0.12s, color 0.12s;
+    }
+
+    .btn-skip:hover {
+      border-color: #5a5a5a;
+      color: var(--vsc-text);
+    }
+
+    /* ── Success overlay ── */
+    .success-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(30,30,30,0.94);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 14px;
+      text-align: center;
+    }
+
+    .success-overlay.show { display: flex; animation: fadeIn 0.2s ease; }
+
+    .success-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: #094771;
+      border: 2px solid var(--vsc-accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      animation: popIn 0.3s ease;
+    }
+
+    .success-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--vsc-text-bright);
+    }
+
+    .success-sub {
+      font-size: 11px;
+      font-family: 'Consolas', 'Courier New', monospace;
+      color: var(--vsc-text-dim);
+      max-width: 320px;
+      line-height: 1.7;
+    }
+
+    .success-tags {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-top: 4px;
+    }
+
+    .success-tag {
+      padding: 2px 10px;
+      background: #094771;
+      border: 1px solid var(--vsc-accent);
+      border-radius: 2px;
+      font-size: 10px;
+      font-family: 'Consolas', 'Courier New', monospace;
+      color: var(--vsc-text);
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; } to { opacity: 1; }
+    }
+
+    @keyframes popIn {
+      0%   { transform: scale(0.6); opacity: 0; }
+      70%  { transform: scale(1.08); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="logo-row">
+      <!-- VS Code Copilot icon (SVG) -->
+      <svg class="logo-icon" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="50" cy="50" r="48" fill="#007acc"/>
+        <path d="M30 38c0-5.5 4.5-10 10-10h20c5.5 0 10 4.5 10 10v4c0 2.2-1.8 4-4 4H34c-2.2 0-4-1.8-4-4v-4z" fill="rgba(255,255,255,0.85)"/>
+        <path d="M38 52h24v4a10 10 0 0 1-10 10h-4a10 10 0 0 1-10-10v-4z" fill="rgba(255,255,255,0.85)"/>
+        <circle cx="39" cy="40" r="3.5" fill="#007acc"/>
+        <circle cx="61" cy="40" r="3.5" fill="#007acc"/>
+        <path d="M44 58 Q50 64 56 58" stroke="#007acc" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+      </svg>
+      <span class="logo-text">Agent Slayer</span>
+      <span class="version-badge">v1.0.0</span>
+    </div>
+    <div class="header-desc">Configure your stack once. Copilot will follow your rules automatically across every project.</div>
+  </div>
+
+  <!-- Section 1: Framework -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-num">01</span>
+      <span class="section-title">Backend Framework</span>
+      <span class="section-desc">// primary language + framework</span>
+    </div>
+    <div class="card-grid cols-4">
+      <div class="option-card selected" data-group="framework" data-value="fastapi" onclick="select(this)">
+        <div class="check">✓</div>
+        <!-- FastAPI logo -->
+        <svg class="card-logo" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="16" cy="16" r="15" fill="#059669"/>
+          <path d="M17 7l-8 13h7l-1 8 8-13h-7z" fill="white"/>
+        </svg>
+        <div class="card-name">FastAPI</div>
+        <div class="card-tag">Python 3.11+</div>
+      </div>
+      <div class="option-card" data-group="framework" data-value="django" onclick="select(this)">
+        <div class="check">✓</div>
+        <!-- Django logo -->
+        <svg class="card-logo" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+          <rect width="32" height="32" rx="4" fill="#092e20"/>
+          <text x="5" y="23" font-size="18" font-family="Georgia,serif" font-weight="900" fill="#44b78b">dj</text>
+        </svg>
+        <div class="card-name">Django</div>
+        <div class="card-tag">Python + DRF</div>
+      </div>
+      <div class="option-card" data-group="framework" data-value="express" onclick="select(this)">
+        <div class="check">✓</div>
+        <!-- Express / Node.js logo -->
+        <svg class="card-logo" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+          <rect width="32" height="32" rx="4" fill="#303030"/>
+          <text x="4" y="22" font-size="11" font-family="Consolas,monospace" font-weight="700" fill="#cccccc">expr</text>
+          <rect x="4" y="24" width="24" height="1.5" fill="#555"/>
+        </svg>
+        <div class="card-name">Express</div>
+        <div class="card-tag">Node.js / JS</div>
+      </div>
+      <div class="option-card" data-group="framework" data-value="spring" onclick="select(this)">
+        <div class="check">✓</div>
+        <!-- Spring Boot logo -->
+        <svg class="card-logo" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="16" cy="16" r="15" fill="#6db33f"/>
+          <path d="M21 8a9 9 0 1 0 2 2M21 8l-1 4 3-1" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <div class="card-name">Spring Boot</div>
+        <div class="card-tag">Java / Kotlin</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 2: Frontend -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-num">02</span>
+      <span class="section-title">Frontend Framework</span>
+      <span class="section-desc">// optional — UI conventions</span>
+    </div>
+    <div class="card-grid cols-3">
+      <div class="option-card selected" data-group="frontend" data-value="none" onclick="select(this)">
+        <div class="check">✓</div>
+        <svg class="card-logo" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+          <rect width="32" height="32" rx="4" fill="#4d4d4d"/>
+          <path d="M9 16h14" stroke="#1e1e1e" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <div class="card-name">None</div>
+        <div class="card-tag">Backend-only</div>
+      </div>
+
+      <div class="option-card" data-group="frontend" data-value="react" onclick="select(this)">
+        <div class="check">✓</div>
+        <svg class="card-logo" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+          <rect width="32" height="32" rx="4" fill="#20232a"/>
+          <circle cx="16" cy="16" r="2.6" fill="#61dafb"/>
+          <ellipse cx="16" cy="16" rx="11" ry="4.5" fill="none" stroke="#61dafb" stroke-width="1.6"/>
+          <ellipse cx="16" cy="16" rx="4.5" ry="11" fill="none" stroke="#61dafb" stroke-width="1.6" transform="rotate(60 16 16)"/>
+          <ellipse cx="16" cy="16" rx="4.5" ry="11" fill="none" stroke="#61dafb" stroke-width="1.6" transform="rotate(-60 16 16)"/>
+        </svg>
+        <div class="card-name">React</div>
+        <div class="card-tag">TypeScript</div>
+      </div>
+
+      <div class="option-card" data-group="frontend" data-value="nextjs" onclick="select(this)">
+        <div class="check">✓</div>
+        <svg class="card-logo" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+          <rect width="32" height="32" rx="4" fill="#000"/>
+          <path d="M10 23V9h3.2l6.8 9.6V9H22v14h-3.1l-7-9.9V23z" fill="#fff" opacity="0.9"/>
+        </svg>
+        <div class="card-name">Next.js</div>
+        <div class="card-tag">App Router</div>
+      </div>
+
+      <div class="option-card" data-group="frontend" data-value="vue" onclick="select(this)">
+        <div class="check">✓</div>
+        <svg class="card-logo" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+          <rect width="32" height="32" rx="4" fill="#41b883"/>
+          <path d="M16 25L6 8h5.5L16 15l4.5-7H26L16 25z" fill="#35495e"/>
+          <path d="M16 25L10.2 8h3.2L16 12.5 18.6 8h3.2L16 25z" fill="#fff" opacity="0.85"/>
+        </svg>
+        <div class="card-name">Vue</div>
+        <div class="card-tag">Composition API</div>
+      </div>
+
+      <div class="option-card" data-group="frontend" data-value="angular" onclick="select(this)">
+        <div class="check">✓</div>
+        <svg class="card-logo" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+          <rect width="32" height="32" rx="4" fill="#dd0031"/>
+          <path d="M16 6l9 3-1.6 12L16 26 8.6 21 7 9z" fill="#c3002f"/>
+          <path d="M16 9l5.5 12h-2.3l-1.1-2.7h-4.2L12.8 21h-2.3L16 9zm1.3 7.3L16 12.9l-1.3 3.4h2.6z" fill="#fff"/>
+        </svg>
+        <div class="card-name">Angular</div>
+        <div class="card-tag">RxJS</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 3: Database -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-num">03</span>
+      <span class="section-title">Database</span>
+      <span class="section-desc">// primary data store</span>
+    </div>
+    <div class="card-grid cols-3">
+      <div class="option-card selected" data-group="database" data-value="postgresql" onclick="select(this)">
+        <div class="check">✓</div>
+        <!-- PostgreSQL elephant logo -->
+        <svg class="card-logo" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+          <rect width="32" height="32" rx="4" fill="#336791"/>
+          <ellipse cx="16" cy="14" rx="7" ry="8" fill="#fff" opacity="0.9"/>
+          <ellipse cx="16" cy="13" rx="5" ry="6" fill="#336791"/>
+          <circle cx="13.5" cy="11.5" r="1.2" fill="white"/>
+          <circle cx="18.5" cy="11.5" r="1.2" fill="white"/>
+          <path d="M13 17 Q16 20 19 17" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+          <path d="M9 10 Q8 6 11 8" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+          <path d="M23 10 Q24 6 21 8" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+        </svg>
+        <div class="card-name">PostgreSQL</div>
+        <div class="card-tag">SQLAlchemy / Prisma / JPA</div>
+      </div>
+      <div class="option-card" data-group="database" data-value="mysql" onclick="select(this)">
+        <div class="check">✓</div>
+        <!-- MySQL dolphin-style logo -->
+        <svg class="card-logo" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+          <rect width="32" height="32" rx="4" fill="#00618a"/>
+          <text x="4" y="20" font-size="9" font-family="Consolas,monospace" font-weight="700" fill="#f29111">MySQL</text>
+          <path d="M6 23 Q10 19 14 23 Q18 27 22 23 Q26 19 28 21" stroke="#f29111" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+        </svg>
+        <div class="card-name">MySQL</div>
+        <div class="card-tag">SQLAlchemy / Prisma / JPA</div>
+      </div>
+      <div class="option-card" data-group="database" data-value="mongodb" onclick="select(this)">
+        <div class="check">✓</div>
+        <!-- MongoDB leaf logo -->
+        <svg class="card-logo" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+          <rect width="32" height="32" rx="4" fill="#13aa52"/>
+          <path d="M16 4 C16 4 10 11 10 18 C10 22.4 12.7 25.6 16 27 C19.3 25.6 22 22.4 22 18 C22 11 16 4 16 4Z" fill="white"/>
+          <rect x="15" y="25" width="2" height="4" rx="1" fill="white"/>
+        </svg>
+        <div class="card-name">MongoDB</div>
+        <div class="card-tag">Motor / Mongoose / Spring Data</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 4: CI/CD -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-num">04</span>
+      <span class="section-title">CI/CD Platform</span>
+      <span class="section-desc">// select all that apply</span>
+    </div>
+    <div class="badge-grid">
+
+      <div class="badge-card selected" data-group="cicd" data-value="github" onclick="toggleBadge(this)">
+        <!-- GitHub mark -->
+        <svg class="badge-logo" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path fill="#cccccc" d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+        </svg>
+        <span class="badge-name">GitHub Actions</span>
+        <span class="badge-check">✓</span>
+      </div>
+
+      <div class="badge-card" data-group="cicd" data-value="gitlab" onclick="toggleBadge(this)">
+        <!-- GitLab tanuki mark -->
+        <svg class="badge-logo" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path fill="#fc6d26" d="M22.65 14.39L12 22.13 1.35 14.39a.84.84 0 0 1-.3-.94l1.22-3.78 2.44-7.51A.42.42 0 0 1 4.82 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.49h8.1l2.44-7.51A.42.42 0 0 1 18.6 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.51L23 13.45a.84.84 0 0 1-.35.94z"/>
+        </svg>
+        <span class="badge-name">GitLab CI</span>
+        <span class="badge-check">✓</span>
+      </div>
+
+      <div class="badge-card" data-group="cicd" data-value="jenkins" onclick="toggleBadge(this)">
+        <!-- Jenkins logo simplified -->
+        <svg class="badge-logo" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <ellipse cx="12" cy="12" rx="11" ry="11" fill="#d33833"/>
+          <ellipse cx="12" cy="11" rx="6" ry="7" fill="#f0d6b7"/>
+          <circle cx="10" cy="9.5" r="1" fill="#333"/>
+          <circle cx="14" cy="9.5" r="1" fill="#333"/>
+          <path d="M10 13 Q12 15 14 13" stroke="#333" stroke-width="1" fill="none" stroke-linecap="round"/>
+        </svg>
+        <span class="badge-name">Jenkins</span>
+        <span class="badge-check">✓</span>
+      </div>
+
+      <div class="badge-card" data-group="cicd" data-value="circleci" onclick="toggleBadge(this)">
+        <!-- CircleCI logo -->
+        <svg class="badge-logo" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="12" cy="12" r="11" fill="#343434"/>
+          <circle cx="12" cy="12" r="3.5" fill="#cccccc"/>
+          <circle cx="12" cy="12" r="8" fill="none" stroke="#cccccc" stroke-width="2" stroke-dasharray="18 32" stroke-linecap="round"/>
+        </svg>
+        <span class="badge-name">CircleCI</span>
+        <span class="badge-check">✓</span>
+      </div>
+
+      <div class="badge-card" data-group="cicd" data-value="azure" onclick="toggleBadge(this)">
+        <!-- Azure DevOps logo -->
+        <svg class="badge-logo" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path fill="#0078d4" d="M0 5.9l4.5-4.4 8.9 3.2V1.1L22.3 7l1.7.8v9.5L19 21.4l-5.7-2V21L4.1 18 3.7 9.5l4.3 1.3V7.2z"/>
+          <path fill="#1490df" d="M13.4 4.7L4.5 9.5v8.5L0 5.9l13.4-1.2z"/>
+          <path fill="#fff" d="M13.4 4.7V19l5.6-5.3V7.5z"/>
+        </svg>
+        <span class="badge-name">Azure Pipelines</span>
+        <span class="badge-check">✓</span>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Section 5: Rules -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-num">05</span>
+      <span class="section-title">Project Rules</span>
+      <span class="section-desc">// behaviour toggles</span>
+    </div>
+    <div class="toggle-row">
+      <div class="toggle-info">
+        <div class="toggle-label">Multi-tenant (org_id scoping)</div>
+        <div class="toggle-desc">Copilot always adds org_id filter to DB queries</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="toggle-multitenant" checked onchange="updatePreview()" />
+        <span class="slider"></span>
+      </label>
+    </div>
+    <div class="toggle-row">
+      <div class="toggle-info">
+        <div class="toggle-label">Auto-apply on VS Code startup</div>
+        <div class="toggle-desc">Re-injects instructions every time VS Code opens</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="toggle-autoapply" checked onchange="updatePreview()" />
+        <span class="slider"></span>
+      </label>
+    </div>
+    <div class="toggle-row">
+      <div class="toggle-info">
+        <div class="toggle-label">Strict error format</div>
+        <div class="toggle-desc">Forces { error, code, detail } on all responses</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="toggle-errorformat" checked onchange="updatePreview()" />
+        <span class="slider"></span>
+      </label>
+    </div>
+  </div>
+
+  <!-- Section 6: Preview -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-num">06</span>
+      <span class="section-title">Configuration Preview</span>
+      <span class="section-desc">// written to VS Code global settings</span>
+    </div>
+    <div class="preview-box">
+      <div class="preview-inner" id="preview-inner">
+        <!-- filled by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div class="actions">
+    <button class="btn-install" id="btn-install" onclick="install()">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm-.5 4h1v5h-1V5zm0 6h1v1h-1v-1z"/></svg>
+      Apply &amp; Install Agent Slayer
+    </button>
+    <button class="btn-skip" onclick="skip()">Skip for now</button>
+  </div>
+
+</div>
+
+<!-- Success overlay -->
+<div class="success-overlay" id="success-overlay">
+  <div class="success-icon">✓</div>
+  <div class="success-title">All set!</div>
+  <div class="success-sub" id="success-sub">
+    Copilot instructions applied. Your skills are ready.<br/>
+    Start typing — Copilot now follows your rules automatically.
+  </div>
+  <div class="success-tags" id="success-tags"></div>
+</div>
+
+<script>
+  const vscode = (typeof acquireVsCodeApi !== 'undefined') ? acquireVsCodeApi() : { postMessage: () => {} };
+
+  const state = {
+    framework: 'fastapi',
+    frontend: 'none',
+    database: 'postgresql',
+    cicd: ['github'],
+    multiTenant: true,
+    autoApply: true,
+    strictErrors: true,
+  };
+
+  function select(card) {
+    const group = card.dataset.group;
+    document.querySelectorAll(`[data-group="${group}"]`).forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+    state[group] = card.dataset.value;
+    updatePreview();
+  }
+
+  function toggleBadge(card) {
+    card.classList.toggle('selected');
+    const val = card.dataset.value;
+    if (card.classList.contains('selected')) {
+      if (!state.cicd.includes(val)) state.cicd.push(val);
+    } else {
+      state.cicd = state.cicd.filter(v => v !== val);
+    }
+    updatePreview();
+  }
+
+  document.getElementById('toggle-multitenant').addEventListener('change', e => { state.multiTenant = e.target.checked; updatePreview(); });
+  document.getElementById('toggle-autoapply').addEventListener('change', e => { state.autoApply = e.target.checked; updatePreview(); });
+  document.getElementById('toggle-errorformat').addEventListener('change', e => { state.strictErrors = e.target.checked; updatePreview(); });
+
+  function line(num, html) {
+    return `<div class="preview-line"><span class="line-num">${num}</span>${html}</div>`;
+  }
+
+  function k(s) { return `<span class="preview-key">"${s}"</span>`; }
+  function v(s) { return `<span class="preview-val">${s}</span>`; }
+  function s(str) { return `<span class="preview-str">"${str}"</span>`; }
+  function p(str) { return `<span class="preview-punct">${str}</span>`; }
+  function c(str) { return `<span class="preview-comment">${str}</span>`; }
+
+  function updatePreview() {
+    const cicdArr = '[' + state.cicd.map(x => `<span class="preview-str">"${x}"</span>`).join(', ') + ']';
+    const rows = [
+      c('// agentSlayer.settings.json'),
+      p('{'),
+      `&nbsp;&nbsp;${k('agentSlayer.stack')}${p(':')} ${s(state.framework)}${p(',')}`,
+      `&nbsp;&nbsp;${k('agentSlayer.frontendFramework')}${p(':')} ${s(state.frontend)}${p(',')}`,
+      `&nbsp;&nbsp;${k('agentSlayer.database')}${p(':')} ${s(state.database)}${p(',')}`,
+      `&nbsp;&nbsp;${k('agentSlayer.cicd')}${p(':')} ${cicdArr}${p(',')}`,
+      `&nbsp;&nbsp;${k('agentSlayer.multiTenant')}${p(':')} ${v(state.multiTenant)}${p(',')}`,
+      `&nbsp;&nbsp;${k('agentSlayer.autoInstallOnStartup')}${p(':')} ${v(state.autoApply)}${p(',')}`,
+      `&nbsp;&nbsp;${k('agentSlayer.strictErrorFormat')}${p(':')} ${v(state.strictErrors)}`,
+      p('}'),
+    ];
+    document.getElementById('preview-inner').innerHTML = rows.map((r, i) => line(i + 1, r)).join('');
+  }
+
+  updatePreview();
+
+  function install() {
+    const btn = document.getElementById('btn-install');
+    btn.textContent = '⏳ Installing...';
+    btn.classList.add('loading');
+    vscode.postMessage({ command: 'install', config: { ...state } });
+  }
+
+  function skip() {
+    vscode.postMessage({ command: 'skip' });
+  }
+
+  window.addEventListener('message', e => {
+    const msg = e.data;
+    if (msg.command === 'installDone') {
+      const overlay = document.getElementById('success-overlay');
+      const tags = document.getElementById('success-tags');
+      const sub = document.getElementById('success-sub');
+      const flabel = { fastapi:'FastAPI', django:'Django', express:'Express', spring:'Spring Boot' };
+      const felabel = { none:'', react:'React', nextjs:'Next.js', vue:'Vue', angular:'Angular' };
+      const dlabel = { postgresql:'PostgreSQL', mysql:'MySQL', mongodb:'MongoDB' };
+      tags.innerHTML = [
+        `<span class="success-tag">${flabel[state.framework] || state.framework}</span>`,
+        felabel[state.frontend] ? `<span class="success-tag">${felabel[state.frontend]}</span>` : '',
+        `<span class="success-tag">${dlabel[state.database] || state.database}</span>`,
+        ...state.cicd.map(c => `<span class="success-tag">${c}</span>`),
+        state.multiTenant ? '<span class="success-tag">multi-tenant</span>' : '',
+      ].filter(Boolean).join('');
+      sub.textContent = `${msg.promptsInstalled} prompt skill files installed. Start typing — Copilot follows your rules automatically.`;
+      overlay.classList.add('show');
+    }
+    if (msg.command === 'installError') {
+      const btn = document.getElementById('btn-install');
+      btn.textContent = '❌ Failed — retry';
+      btn.classList.remove('loading');
+    }
+  });
+</script>
+</body>
+</html>

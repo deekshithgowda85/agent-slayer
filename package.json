@@ -1,0 +1,154 @@
+{
+  "name": "agent-slayer",
+  "displayName": "Agent Slayer — FastAPI, Django, Express, Spring",
+  "description": "Agent Slayer: setup wizard + global Copilot instructions, prompt skills and coding rules for Python, JS, and Java projects",
+  "version": "1.0.0",
+  "publisher": "deekshithgowda85",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agentslayer/agent-slayer.git"
+  },
+  "homepage": "https://github.com/agentslayer/agent-slayer#readme",
+  "bugs": {
+    "url": "https://github.com/agentslayer/agent-slayer/issues"
+  },
+  "engines": { "vscode": "^1.100.0" },
+  "categories": ["AI", "Programming Languages", "Other"],
+  "keywords": ["copilot", "fastapi", "python", "skills", "prompts", "instructions", "setup"],
+  "icon": "icon.png",
+  "activationEvents": ["onStartupFinished"],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "copilotSkills.openSetup",
+        "title": "Agent Slayer: Open Setup"
+      },
+      {
+        "command": "copilotSkills.rerunSetup",
+        "title": "Agent Slayer: Re-run Setup"
+      },
+      {
+        "command": "copilotSkills.install",
+        "title": "Agent Slayer: Install Global Instructions"
+      },
+      {
+        "command": "copilotSkills.installPrompts",
+        "title": "Agent Slayer: Install Prompt Files"
+      },
+      {
+        "command": "copilotSkills.reset",
+        "title": "Agent Slayer: Reset to Defaults"
+      },
+      {
+        "command": "copilotSkills.showStatus",
+        "title": "Agent Slayer: Show Status"
+      }
+    ],
+
+    "customEditors": [
+      {
+        "viewType": "copilotSkills.settingsEditor",
+        "displayName": "Agent Slayer Settings",
+        "selector": [
+          { "filenamePattern": "copilot-skills-settings" }
+        ],
+        "priority": "default"
+      }
+    ],
+
+    "configuration": {
+      "title": "Agent Slayer",
+      "properties": {
+        "agentSlayer.frontendFramework": {
+          "type": "string",
+          "default": "none",
+          "enum": ["none", "react", "nextjs", "vue", "angular"],
+          "enumDescriptions": [
+            "No frontend / backend-only",
+            "React",
+            "Next.js",
+            "Vue",
+            "Angular"
+          ],
+          "description": "Primary frontend framework (set by Setup Wizard)"
+        },
+        "agentSlayer.stack": {
+          "type": "string",
+          "default": "fastapi",
+          "enum": ["fastapi", "django", "flask", "nodejs"],
+          "enumDescriptions": [
+            "FastAPI + Python 3.11",
+            "Django 4.x + DRF",
+            "Flask + SQLAlchemy",
+            "Express + TypeScript / Spring Boot"
+          ],
+          "description": "Primary backend framework (set by Setup Wizard)"
+        },
+        "agentSlayer.database": {
+          "type": "string",
+          "default": "postgresql",
+          "enum": ["postgresql", "mysql", "mongodb", "sqlite"],
+          "description": "Primary database (set by Setup Wizard)"
+        },
+        "agentSlayer.cicd": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": ["github"],
+          "description": "CI/CD platforms in use (set by Setup Wizard)"
+        },
+        "agentSlayer.multiTenant": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable multi-tenant org_id scoping rules"
+        },
+        "agentSlayer.strictErrorFormat": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enforce { error, code, detail } on all error responses"
+        },
+        "agentSlayer.autoInstallOnStartup": {
+          "type": "boolean",
+          "default": true,
+          "description": "Auto-apply instructions every time VS Code opens"
+        },
+        "agentSlayer.orgIdField": {
+          "type": "string",
+          "default": "org_id",
+          "description": "Field name used for tenant scoping in DB queries"
+        },
+        "agentSlayer.testFramework": {
+          "type": "string",
+          "default": "pytest",
+          "enum": ["pytest", "jest", "unittest"],
+          "description": "Primary test framework"
+        }
+      }
+    },
+
+    "chatParticipants": [
+      {
+        "id": "copilot-skills.assistant",
+        "name": "skills",
+        "description": "Your project skills assistant — create endpoints, tests, migrations and more",
+        "isSticky": true
+      }
+    ]
+  },
+
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package",
+    "publish": "vsce publish --no-dependencies",
+    "lint": "eslint src --ext ts"
+  },
+
+  "devDependencies": {
+    "@types/vscode": "^1.100.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.4.0",
+    "@vscode/vsce": "^2.24.0"
+  }
+}
