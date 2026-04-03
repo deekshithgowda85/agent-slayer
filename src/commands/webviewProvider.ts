@@ -1,7 +1,6 @@
 ﻿import * as path from 'path';
 import * as fs from 'fs/promises';
 import * as nodeFs from 'fs';
-import * as https from 'https';
 import * as vscode from 'vscode';
 import { ACTIVE_PROMPT_KEY } from './contextSwitcher';
 import { log } from '../utils/logger';
@@ -38,8 +37,7 @@ type IncomingMessage =
   | { command: 'createPrompt'; prompt: PromptEditorPayload }
   | { command: 'updatePrompt'; fileName: string; prompt: PromptEditorPayload }
   | { command: 'deletePrompt'; fileName: string }
-  | { command: 'duplicatePrompt'; fileName: string }
-  | { command: 'enhancePrompt'; requestId: string; content: string };
+  | { command: 'duplicatePrompt'; fileName: string };
 
 interface FrontmatterData {
   name: string;
@@ -57,8 +55,6 @@ const CATEGORIES = [
   'Architecture',
   'General',
 ];
-
-const ANTHROPIC_MODEL = 'claude-sonnet-4-20250514';
 
 export class AgentSlayerSidebarProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'agentSlayer.sidebar';
@@ -141,9 +137,7 @@ export class AgentSlayerSidebarProvider implements vscode.WebviewViewProvider {
       return;
     }
 
-    if (message.command === 'enhancePrompt') {
-      await this.enhancePrompt(message.requestId, message.content);
-    }
+    return;
   }
 
   private parseMessage(rawMessage: unknown): IncomingMessage | null {
@@ -182,18 +176,6 @@ export class AgentSlayerSidebarProvider implements vscode.WebviewViewProvider {
 
     if (msg.command === 'duplicatePrompt' && typeof msg.fileName === 'string') {
       return { command: 'duplicatePrompt', fileName: msg.fileName };
-    }
-
-    if (
-      msg.command === 'enhancePrompt' &&
-      typeof msg.requestId === 'string' &&
-      typeof msg.content === 'string'
-    ) {
-      return {
-        command: 'enhancePrompt',
-        requestId: msg.requestId,
-        content: msg.content,
-      };
     }
 
     return null;
@@ -346,178 +328,6 @@ export class AgentSlayerSidebarProvider implements vscode.WebviewViewProvider {
     } catch (error) {
       log('Failed to duplicate prompt: ' + String(error));
       this.postToast('Failed to duplicate prompt.', true);
-    }
-  }
-
-  private async enhancePrompt(requestId: string, content: string): Promise<void> {
-    if (!this.view) {
-      return;
-    }
-
-    const apiKey = this.getAnthropicApiKey();
-    if (!apiKey) {
-      await this.view.webview.postMessage({
-        command: 'enhanceError',
-        requestId,
-        error: 'Missing Anthropic API key. Set ANTHROPIC_API_KEY or agentSlayer.anthropicApiKey.',
-      });
-      return;
-    }
-
-    await this.view.webview.postMessage({ command: 'enhanceStart', requestId });
-
-    try {
-      await this.streamEnhancedPrompt(apiKey, requestId, content);
-      await this.view.webview.postMessage({ command: 'enhanceDone', requestId });
-    } catch (error) {
-      log('Prompt enhancement failed: ' + String(error));
-      await this.view.webview.postMessage({
-        command: 'enhanceError',
-        requestId,
-        error: 'AI enhancement failed. Check API key or network.',
-      });
-    }
-  }
-
-  private getAnthropicApiKey(): string {
-    const cfg = vscode.workspace.getConfiguration('agentSlayer');
-    const fromSettings = cfg.get<string>('anthropicApiKey', '').trim();
-    const fromEnv = (process.env.ANTHROPIC_API_KEY || '').trim();
-    return fromSettings || fromEnv;
-  }
-
-  private streamEnhancedPrompt(
-    apiKey: string,
-    requestId: string,
-    sourceContent: string
-  ): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const payload = JSON.stringify({
-        model: ANTHROPIC_MODEL,
-        max_tokens: 1200,
-        stream: true,
-        system:
-          'You are an expert prompt engineer. Rewrite user prompts to be clearer, actionable, and effective while preserving intent. Return only the improved prompt body.',
-        messages: [
-          {
-            role: 'user',
-            content:
-              'Improve this coding-assistant prompt while preserving intent:\n\n' +
-              sourceContent,
-          },
-        ],
-      });
-
-      const request = https.request(
-        {
-          hostname: 'api.anthropic.com',
-          path: '/v1/messages',
-          method: 'POST',
-          headers: {
-            'content-type': 'application/json',
-            'x-api-key': apiKey,
-            'anthropic-version': '2023-06-01',
-            'content-length': Buffer.byteLength(payload),
-          },
-          timeout: 30000,
-        },
-        (response) => {
-          if (!response.statusCode || response.statusCode >= 400) {
-            const chunks: Buffer[] = [];
-            response.on('data', (chunk) => {
-              chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-            });
-            response.on('end', () => {
-              reject(
-                new Error(
-                  'Anthropic HTTP ' +
-                    String(response.statusCode ?? 0) +
-                    ' ' +
-                    Buffer.concat(chunks).toString('utf8')
-                )
-              );
-            });
-            return;
-          }
-
-          let sseBuffer = '';
-          response.on('data', (chunk) => {
-            sseBuffer += Buffer.isBuffer(chunk)
-              ? chunk.toString('utf8')
-              : String(chunk);
-
-            let boundary = sseBuffer.indexOf('\n\n');
-            while (boundary !== -1) {
-              const eventBlock = sseBuffer.slice(0, boundary);
-              sseBuffer = sseBuffer.slice(boundary + 2);
-              this.consumeAnthropicEventBlock(eventBlock, requestId);
-              boundary = sseBuffer.indexOf('\n\n');
-            }
-          });
-
-          response.on('end', () => {
-            if (sseBuffer.trim()) {
-              this.consumeAnthropicEventBlock(sseBuffer, requestId);
-            }
-            resolve();
-          });
-
-          response.on('error', (error) => {
-            reject(error);
-          });
-        }
-      );
-
-      request.on('timeout', () => {
-        request.destroy(new Error('Anthropic request timeout'));
-      });
-
-      request.on('error', (error) => {
-        reject(error);
-      });
-
-      request.write(payload);
-      request.end();
-    });
-  }
-
-  private consumeAnthropicEventBlock(eventBlock: string, requestId: string): void {
-    if (!this.view) {
-      return;
-    }
-
-    const lines = eventBlock.split(/\r?\n/);
-    for (const line of lines) {
-      if (!line.startsWith('data:')) {
-        continue;
-      }
-
-      const data = line.slice(5).trim();
-      if (!data || data === '[DONE]') {
-        continue;
-      }
-
-      try {
-        const parsed = JSON.parse(data) as Record<string, unknown>;
-        const type = typeof parsed.type === 'string' ? parsed.type : '';
-        if (type !== 'content_block_delta') {
-          continue;
-        }
-
-        const delta = parsed.delta as Record<string, unknown> | undefined;
-        const text = delta && typeof delta.text === 'string' ? delta.text : '';
-        if (!text) {
-          continue;
-        }
-
-        void this.view.webview.postMessage({
-          command: 'enhanceChunk',
-          requestId,
-          chunk: text,
-        });
-      } catch {
-        // Ignore malformed event lines.
-      }
     }
   }
 
@@ -893,7 +703,7 @@ export class AgentSlayerSidebarProvider implements vscode.WebviewViewProvider {
     const nonce = this.getNonce();
     const initialState = JSON.stringify(state).replace(/</g, '\\u003c');
     const iconUri = webview
-      .asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'media', 'agent-slayer-activity.svg'))
+      .asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'icon.png'))
       .toString();
 
     return `<!DOCTYPE html>
@@ -909,14 +719,16 @@ export class AgentSlayerSidebarProvider implements vscode.WebviewViewProvider {
   <style nonce="${nonce}">
     :root {
       --bg: var(--vscode-sideBar-background);
-      --card: var(--vscode-sideBarSectionHeader-background, var(--vscode-editorWidget-background, var(--vscode-sideBar-background)));
-      --border: var(--vscode-panel-border, var(--vscode-widget-border, rgba(127, 127, 127, 0.4)));
-      --accent: var(--vscode-focusBorder);
-      --highlight: var(--vscode-textLink-foreground);
+      --surface: var(--vscode-sideBarSectionHeader-background, var(--vscode-editorWidget-background, var(--vscode-sideBar-background)));
       --text: var(--vscode-sideBar-foreground);
       --muted: var(--vscode-descriptionForeground);
-      --shadow: 0 0 0 rgba(0, 0, 0, 0);
-      --danger: var(--vscode-inputValidation-errorForeground, #fda4af);
+      --line: var(--vscode-panel-border, var(--vscode-widget-border, rgba(127, 127, 127, 0.35)));
+      --hover: var(--vscode-list-hoverBackground, rgba(127, 127, 127, 0.1));
+      --active-bg: var(--vscode-list-activeSelectionBackground, var(--surface));
+      --active-fg: var(--vscode-list-activeSelectionForeground, var(--text));
+      --active-border: var(--vscode-focusBorder);
+      --active-accent: var(--vscode-textLink-foreground);
+      --danger: var(--vscode-inputValidation-errorForeground, var(--vscode-errorForeground, var(--text)));
     }
 
     * {
@@ -930,7 +742,7 @@ export class AgentSlayerSidebarProvider implements vscode.WebviewViewProvider {
       height: 100%;
       background: var(--bg);
       color: var(--text);
-      font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       overflow: hidden;
     }
 
@@ -938,19 +750,13 @@ export class AgentSlayerSidebarProvider implements vscode.WebviewViewProvider {
       height: 100%;
       display: grid;
       grid-template-rows: auto 1fr auto;
-      gap: 12px;
-      padding: 14px;
+      gap: 0;
+      padding: 0 8px 8px;
       position: relative;
     }
 
-    .card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-    }
-
     .header {
-      padding: 12px;
+      padding: 12px 12px 8px;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -983,111 +789,127 @@ export class AgentSlayerSidebarProvider implements vscode.WebviewViewProvider {
     }
 
     .title {
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 600;
+      color: var(--text);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
 
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
     .badge {
-      border: 1px solid var(--border);
-      background: var(--card);
-      color: var(--highlight);
-      border-radius: 999px;
-      padding: 3px 8px;
-      font-size: 11px;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      letter-spacing: 0.03em;
-    }
-
-    .section-label {
-      font-size: 11px;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
+      border: 1px solid var(--line);
+      background: var(--surface);
       color: var(--muted);
+      border-radius: 4px;
+      padding: 3px 6px;
+      font-size: 10px;
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      line-height: 1;
     }
 
-    .fade-in {
-      animation: fadeIn 150ms ease;
+    .create-btn {
+      min-width: 54px;
+      height: 24px;
+      border-radius: 6px;
+      border: 1px solid var(--vscode-button-border, transparent);
+      background: var(--vscode-button-background);
+      color: var(--vscode-button-foreground);
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 1;
+      padding: 0 9px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 140ms ease, border-color 140ms ease;
     }
 
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(3px); }
-      to { opacity: 1; transform: translateY(0); }
+    .create-btn:hover {
+      background: var(--vscode-button-hoverBackground);
+      border-color: var(--active-border);
     }
 
     .list-wrap {
       overflow: hidden;
       min-height: 0;
       display: grid;
+      grid-template-rows: auto 1fr;
       gap: 8px;
+    }
+
+    .list-separator {
+      height: 1px;
+      background: var(--line);
+      width: 100%;
     }
 
     .list {
       overflow: auto;
       min-height: 0;
       display: grid;
-      gap: 10px;
-      padding-right: 2px;
-      padding-bottom: 108px;
+      gap: 2px;
+      padding: 0;
+      padding-bottom: 96px;
     }
 
     .list::-webkit-scrollbar {
-      width: 8px;
+      width: 4px;
+    }
+
+    .list::-webkit-scrollbar-track {
+      background: var(--surface);
     }
 
     .list::-webkit-scrollbar-thumb {
-      background: var(--vscode-scrollbarSlider-background);
+      background: var(--line);
       border-radius: 999px;
     }
 
     .prompt-card {
       position: relative;
-      padding: 11px;
-      display: grid;
-      gap: 8px;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      background: var(--card);
-      transition: transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease;
-      box-shadow: var(--shadow);
+      height: 64px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      background: transparent;
+      cursor: pointer;
+      transition: background 160ms ease, border-color 160ms ease;
       overflow: hidden;
-      min-height: 92px;
     }
 
     .prompt-card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.2);
-      border-color: var(--accent);
+      background: var(--hover);
+      border-color: var(--line);
     }
 
     .prompt-card.active {
-      border-color: var(--accent);
+      background: var(--active-bg);
+      border-color: var(--active-border);
     }
 
     .prompt-card.active::before {
       content: '';
       position: absolute;
-      top: 8px;
+      top: 0;
       left: 0;
       width: 3px;
-      height: calc(100% - 16px);
-      border-radius: 0 10px 10px 0;
-      background: linear-gradient(180deg, var(--accent), var(--highlight));
-      box-shadow: 0 0 8px rgba(0, 0, 0, 0.22);
+      height: 100%;
+      border-radius: 0;
+      background: var(--active-accent);
     }
 
-    .prompt-card.pulse {
-      animation: pulsePurple 550ms ease;
-    }
-
-    @keyframes pulsePurple {
-      0% { box-shadow: 0 0 0 rgba(192, 132, 252, 0); }
-      40% { box-shadow: 0 0 0 4px rgba(192, 132, 252, 0.34); }
-      100% { box-shadow: 0 0 0 rgba(192, 132, 252, 0); }
-    }
+    .prompt-card.pulse { }
 
     .prompt-enter {
       opacity: 0;
@@ -1105,66 +927,61 @@ export class AgentSlayerSidebarProvider implements vscode.WebviewViewProvider {
     .prompt-head {
       display: flex;
       align-items: flex-start;
-      gap: 10px;
+      flex-direction: column;
+      gap: 2px;
       min-width: 0;
-      padding-right: 30px;
-    }
-
-    .icon {
-      width: 22px;
-      height: 22px;
-      border-radius: 6px;
-      border: 1px solid var(--border);
-      background: var(--card);
-      color: var(--accent);
-      display: grid;
-      place-items: center;
-      font-size: 10px;
-      text-transform: uppercase;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      flex-shrink: 0;
+      flex: 1;
+      padding-right: 8px;
     }
 
     .prompt-name {
       font-size: 14px;
-      font-weight: 600;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      width: 100%;
     }
 
     .prompt-description {
-      font-size: 12px;
-      color: var(--muted);
-      line-height: 1.4;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-    }
-
-    .prompt-meta {
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-    }
-
-    .pill {
       font-size: 11px;
+      color: var(--muted);
+      line-height: 1.15;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+    }
+
+    .prompt-tags {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+      margin-top: 1px;
+      display: none;
+    }
+
+    .prompt-card.active .prompt-tags {
+      display: inline-flex;
+    }
+
+    .tag-pill {
+      font-size: 11px;
+      font-size: 10px;
+      line-height: 1;
       border-radius: 999px;
-      border: 1px solid var(--border);
-      background: var(--card);
-      color: var(--text);
-      padding: 2px 8px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      color: var(--active-accent);
+      padding: 2px 6px;
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     }
 
-    .activate-btn,
     .action-btn,
     .modal-btn,
     .ghost-btn,
-    .menu-item,
     .confirm-btn {
       position: relative;
       overflow: hidden;
@@ -1179,158 +996,85 @@ export class AgentSlayerSidebarProvider implements vscode.WebviewViewProvider {
       font-weight: 600;
     }
 
-    .activate-btn:hover,
     .action-btn:hover,
     .modal-btn:hover,
     .ghost-btn:hover,
-    .menu-item:hover,
     .confirm-btn:hover {
       transform: translateY(-1px);
-      border-color: var(--accent);
+      border-color: var(--active-border);
       background: var(--vscode-button-secondaryHoverBackground);
     }
 
-    .activate-btn.is-active {
-      background: var(--vscode-button-background);
-      color: var(--vscode-button-foreground);
-      border-color: var(--vscode-button-border, transparent);
-    }
-
-    .menu-trigger {
-      position: absolute;
-      top: 8px;
-      right: 8px;
-      width: 22px;
-      height: 22px;
-      border-radius: 7px;
-      border: 1px solid var(--border);
-      background: var(--card);
-      color: var(--text);
-      cursor: pointer;
-      opacity: 1;
-      transform: translateY(0);
-      transition: opacity 150ms ease, transform 150ms ease, background 150ms ease;
-      font-size: 13px;
-      line-height: 1;
-      z-index: 3;
-    }
-
-    .menu-trigger:hover {
-      background: var(--vscode-list-hoverBackground, var(--card));
-    }
-
-    .menu {
-      position: absolute;
-      top: 34px;
-      right: 8px;
+    .context-menu {
+      position: fixed;
       display: none;
-      min-width: 120px;
-      border-radius: 10px;
-      border: 1px solid var(--border);
-      background: var(--card);
-      padding: 6px;
-      z-index: 4;
-      box-shadow: 0 10px 22px rgba(0, 0, 0, 0.45);
+      min-width: 104px;
+      border-radius: 6px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      padding: 4px;
+      z-index: 20;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
     }
 
-    .menu.open {
+    .context-menu.open {
       display: grid;
-      gap: 4px;
+      gap: 3px;
     }
 
-    .menu-item {
-      background: var(--vscode-button-secondaryBackground);
+    .context-item {
+      border: 0;
+      background: transparent;
+      color: var(--text);
       text-align: left;
-      padding: 6px 8px;
+      padding: 5px 7px;
       font-size: 12px;
+      font-weight: 500;
       width: 100%;
+      border-radius: 4px;
+      cursor: pointer;
     }
 
-    .delete-confirm {
-      border: 1px dashed var(--vscode-inputValidation-errorBorder, var(--border));
-      background: var(--vscode-inputValidation-errorBackground, var(--card));
-      border-radius: 8px;
-      padding: 9px;
-      display: grid;
-      gap: 8px;
-      font-size: 12px;
-      color: var(--vscode-inputValidation-errorForeground, var(--danger));
-    }
-
-    .confirm-actions {
-      display: flex;
-      gap: 8px;
-      justify-content: flex-end;
-    }
-
-    .confirm-btn.no {
-      border-color: var(--border);
-      background: var(--vscode-button-secondaryBackground);
-      color: var(--vscode-button-secondaryForeground);
-    }
-
-    .confirm-btn.yes {
-      border-color: var(--vscode-inputValidation-errorBorder, var(--border));
-      background: var(--vscode-inputValidation-errorBackground, var(--card));
-      color: var(--vscode-inputValidation-errorForeground, var(--danger));
-    }
-
-    .ripple {
-      position: absolute;
-      border-radius: 999px;
-      transform: scale(0);
-      animation: ripple 420ms ease-out;
-      background: rgba(248, 250, 252, 0.38);
-      pointer-events: none;
-    }
-
-    @keyframes ripple {
-      to {
-        transform: scale(4);
-        opacity: 0;
-      }
+    .context-item:hover {
+      background: var(--hover);
     }
 
     .bottom {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 8px;
-      padding: 10px;
+      padding: 8px 0 8px;
     }
 
     .empty {
-      border: 1px dashed var(--border);
+      border: 1px dashed var(--line);
       border-radius: 10px;
       padding: 14px;
       font-size: 12px;
       color: var(--muted);
       text-align: center;
-      background: var(--card);
+      background: var(--surface);
     }
 
-    .fab {
-      position: absolute;
-      right: 18px;
-      bottom: 68px;
-      width: 44px;
-      height: 44px;
-      border-radius: 999px;
-      border: 1px solid var(--vscode-button-border, transparent);
+    #sync-btn,
+    #marketplace-btn {
+      height: 32px;
+      border-radius: 6px;
+      font-size: 12px;
+      padding: 0 10px;
+      width: 100%;
+    }
+
+    #sync-btn {
+      background: transparent;
+      border: 1px solid var(--line);
+      color: var(--muted);
+    }
+
+    #marketplace-btn {
       background: var(--vscode-button-background);
+      border: 1px solid var(--vscode-button-border, transparent);
       color: var(--vscode-button-foreground);
-      font-size: 24px;
-      line-height: 0;
-      display: grid;
-      place-items: center;
-      cursor: pointer;
-      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28);
-      transition: transform 180ms ease, box-shadow 180ms ease;
-      z-index: 5;
-    }
-
-    .fab:hover {
-      transform: scale(1.1);
-      box-shadow: 0 0 16px rgba(0, 0, 0, 0.4);
     }
 
     .toast {
@@ -1338,8 +1082,8 @@ export class AgentSlayerSidebarProvider implements vscode.WebviewViewProvider {
       left: 50%;
       bottom: 14px;
       transform: translateX(-50%) translateY(12px);
-      background: var(--vscode-notifications-background, var(--card));
-      border: 1px solid var(--border);
+      background: var(--vscode-notifications-background, var(--surface));
+      border: 1px solid var(--line);
       border-radius: 999px;
       padding: 7px 12px;
       font-size: 12px;
@@ -1360,7 +1104,7 @@ export class AgentSlayerSidebarProvider implements vscode.WebviewViewProvider {
     }
 
     .toast.error {
-      border-color: var(--vscode-inputValidation-errorBorder, var(--border));
+      border-color: var(--vscode-inputValidation-errorBorder, var(--line));
       color: var(--vscode-inputValidation-errorForeground, var(--danger));
     }
 
@@ -1387,8 +1131,8 @@ export class AgentSlayerSidebarProvider implements vscode.WebviewViewProvider {
       width: min(560px, 100%);
       max-height: calc(100vh - 24px);
       border-radius: 14px;
-      border: 1px solid var(--border);
-      background: var(--card);
+      border: 1px solid var(--line);
+      background: var(--surface);
       transform: translateY(100px);
       opacity: 0;
       transition: transform 300ms ease, opacity 300ms ease;
@@ -1407,7 +1151,7 @@ export class AgentSlayerSidebarProvider implements vscode.WebviewViewProvider {
       align-items: center;
       justify-content: space-between;
       padding: 12px;
-      border-bottom: 1px solid var(--border);
+      border-bottom: 1px solid var(--line);
       gap: 10px;
     }
 
@@ -1439,7 +1183,7 @@ export class AgentSlayerSidebarProvider implements vscode.WebviewViewProvider {
     .input,
     .select,
     .textarea {
-      border: 1px solid var(--vscode-input-border, var(--border));
+      border: 1px solid var(--vscode-input-border, var(--line));
       background: var(--vscode-input-background);
       color: var(--vscode-input-foreground);
       border-radius: 10px;
@@ -1452,8 +1196,8 @@ export class AgentSlayerSidebarProvider implements vscode.WebviewViewProvider {
     .input:focus,
     .select:focus,
     .textarea:focus {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 1px var(--accent);
+      border-color: var(--active-border);
+      box-shadow: 0 0 0 1px var(--active-border);
     }
 
     .textarea {
@@ -1467,7 +1211,7 @@ export class AgentSlayerSidebarProvider implements vscode.WebviewViewProvider {
       display: flex;
       justify-content: space-between;
       gap: 8px;
-      border-top: 1px solid var(--border);
+      border-top: 1px solid var(--line);
       padding: 10px 12px;
     }
 
@@ -1480,59 +1224,42 @@ export class AgentSlayerSidebarProvider implements vscode.WebviewViewProvider {
 
     .ghost-btn {
       background: var(--vscode-button-secondaryBackground);
-      border-color: var(--border);
+      border-color: var(--line);
       color: var(--vscode-button-secondaryForeground);
     }
 
-    .ai-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .sparkle {
-      font-size: 13px;
-      line-height: 1;
-    }
-
-    .ai-btn.loading {
-      pointer-events: none;
-      opacity: 0.9;
-    }
-
-    .ai-btn.loading .sparkle {
-      animation: spinSpark 850ms linear infinite;
-    }
-
-    @keyframes spinSpark {
-      to {
-        transform: rotate(360deg);
-      }
-    }
   </style>
 </head>
 <body>
   <main class="layout">
-    <section class="card header">
+    <section class="header">
       <div class="brand">
         <div class="logo"><img class="logo-image" src="${iconUri}" alt="Agent Slayer" /></div>
         <div class="title">Agent Slayer</div>
       </div>
-      <div id="version-badge" class="badge">v${this.escapeHtml(state.version)}</div>
+      <div class="header-right">
+        <div id="version-badge" class="badge">v${this.escapeHtml(state.version)}</div>
+        <button id="create-btn" class="create-btn" type="button" aria-label="Create New Prompt">Add</button>
+      </div>
     </section>
 
     <section class="list-wrap">
-      <div class="section-label">Prompt List</div>
+      <div class="list-separator"></div>
       <div id="prompt-list" class="list"></div>
     </section>
 
-    <section class="card bottom">
+    <section class="bottom">
       <button id="sync-btn" class="action-btn" type="button">Sync</button>
       <button id="marketplace-btn" class="action-btn" type="button">Marketplace</button>
     </section>
 
-    <button id="create-fab" class="fab" type="button" aria-label="Create New Prompt">+</button>
     <div id="toast" class="toast"></div>
+
+    <div id="context-menu" class="context-menu" role="menu" aria-label="Prompt actions">
+      <button id="context-activate" class="context-item" type="button" role="menuitem">Activate</button>
+      <button id="context-edit" class="context-item" type="button" role="menuitem">Edit</button>
+      <button id="context-delete" class="context-item" type="button" role="menuitem">Delete</button>
+    </div>
   </main>
 
   <div id="modal-backdrop" class="modal-backdrop">
@@ -1583,12 +1310,7 @@ export class AgentSlayerSidebarProvider implements vscode.WebviewViewProvider {
       </div>
 
       <footer class="modal-actions">
-        <div class="left-actions">
-          <button id="ai-enhance-btn" type="button" class="modal-btn ai-btn">
-            <span class="sparkle">&#10022;</span>
-            AI Enhance
-          </button>
-        </div>
+        <div class="left-actions"></div>
         <div class="right-actions">
           <button id="modal-cancel" type="button" class="ghost-btn">Cancel</button>
           <button id="modal-save" type="button" class="modal-btn">Save Prompt</button>
@@ -1599,42 +1321,30 @@ export class AgentSlayerSidebarProvider implements vscode.WebviewViewProvider {
 
   <script nonce="${nonce}">
     const vscode = acquireVsCodeApi();
-    const iconLabels = {
-      shield: 'SEC',
-      beaker: 'TST',
-      bug: 'DBG',
-      database: 'DB',
-      arrows: 'MIG',
-      api: 'API',
-      spark: 'NEW',
-      file: 'DOC'
-    };
 
     let appState = ${initialState};
-    let openMenuFile = '';
-    let deleteConfirmFile = '';
+    let contextFileName = '';
     let toastTimer = 0;
     let editMode = {
       mode: 'create',
       fileName: ''
     };
 
-    let currentEnhanceRequest = '';
-    let typingQueue = '';
-    let typingTimer = 0;
-
     const promptList = document.getElementById('prompt-list');
     const syncBtn = document.getElementById('sync-btn');
     const marketplaceBtn = document.getElementById('marketplace-btn');
-    const createFab = document.getElementById('create-fab');
+    const createBtn = document.getElementById('create-btn');
     const toast = document.getElementById('toast');
+    const contextMenu = document.getElementById('context-menu');
+    const contextActivate = document.getElementById('context-activate');
+    const contextEdit = document.getElementById('context-edit');
+    const contextDelete = document.getElementById('context-delete');
 
     const modalBackdrop = document.getElementById('modal-backdrop');
     const modalTitle = document.getElementById('modal-title');
     const modalClose = document.getElementById('modal-close');
     const modalCancel = document.getElementById('modal-cancel');
     const modalSave = document.getElementById('modal-save');
-    const aiEnhanceBtn = document.getElementById('ai-enhance-btn');
 
     const promptNameInput = document.getElementById('prompt-name');
     const promptCategoryInput = document.getElementById('prompt-category');
@@ -1642,77 +1352,51 @@ export class AgentSlayerSidebarProvider implements vscode.WebviewViewProvider {
     const promptContentInput = document.getElementById('prompt-content');
     const promptTagsInput = document.getElementById('prompt-tags');
 
+    function shortDescription(value) {
+      const text = String(value || '').trim();
+      if (text.length <= 40) {
+        return text;
+      }
+
+      return text.slice(0, 37).trimEnd() + '...';
+    }
+
+    function closeContextMenu() {
+      if (!contextMenu) {
+        return;
+      }
+
+      contextMenu.classList.remove('open');
+      contextFileName = '';
+    }
+
+    function openContextMenu(fileName, clientX, clientY) {
+      if (!contextMenu) {
+        return;
+      }
+
+      contextFileName = fileName;
+      contextMenu.classList.add('open');
+
+      const width = contextMenu.offsetWidth || 110;
+      const height = contextMenu.offsetHeight || 110;
+      const left = Math.max(8, Math.min(clientX, window.innerWidth - width - 8));
+      const top = Math.max(8, Math.min(clientY, window.innerHeight - height - 8));
+
+      contextMenu.style.left = String(left) + 'px';
+      contextMenu.style.top = String(top) + 'px';
+    }
+
     function createPromptCard(prompt, index) {
       const isActive = prompt.fileName === appState.activePromptFile;
       const card = document.createElement('article');
       card.className = 'prompt-card prompt-enter' + (isActive ? ' active' : '');
-      if (openMenuFile === prompt.fileName) {
-        card.classList.add('menu-open');
-      }
 
       card.style.animationDelay = String(index * 50) + 'ms';
       card.dataset.fileName = prompt.fileName;
 
-      const menuTrigger = document.createElement('button');
-      menuTrigger.type = 'button';
-      menuTrigger.className = 'menu-trigger';
-      menuTrigger.textContent = '\u22EF';
-      menuTrigger.setAttribute('aria-label', 'Prompt actions');
-      menuTrigger.addEventListener('click', (event) => {
-        event.stopPropagation();
-        openMenuFile = openMenuFile === prompt.fileName ? '' : prompt.fileName;
-        deleteConfirmFile = '';
-        renderPromptList();
-      });
-
-      const menu = document.createElement('div');
-      menu.className = 'menu' + (openMenuFile === prompt.fileName ? ' open' : '');
-      menu.addEventListener('click', (event) => {
-        event.stopPropagation();
-      });
-
-      const editBtn = document.createElement('button');
-      editBtn.type = 'button';
-      editBtn.className = 'menu-item';
-      editBtn.textContent = 'Edit';
-      editBtn.addEventListener('click', (event) => {
-        event.stopPropagation();
-        openMenuFile = '';
-        openEditor('edit', prompt);
-      });
-
-      const duplicateBtn = document.createElement('button');
-      duplicateBtn.type = 'button';
-      duplicateBtn.className = 'menu-item';
-      duplicateBtn.textContent = 'Duplicate';
-      duplicateBtn.addEventListener('click', (event) => {
-        event.stopPropagation();
-        openMenuFile = '';
-        vscode.postMessage({ command: 'duplicatePrompt', fileName: prompt.fileName });
-      });
-
-      const deleteBtn = document.createElement('button');
-      deleteBtn.type = 'button';
-      deleteBtn.className = 'menu-item';
-      deleteBtn.textContent = 'Delete';
-      deleteBtn.addEventListener('click', (event) => {
-        event.stopPropagation();
-        openMenuFile = '';
-        deleteConfirmFile = prompt.fileName;
-        renderPromptList();
-      });
-
-      menu.append(editBtn, duplicateBtn, deleteBtn);
-
       const head = document.createElement('div');
       head.className = 'prompt-head';
-
-      const icon = document.createElement('div');
-      icon.className = 'icon';
-      icon.textContent = iconLabels[prompt.icon] || iconLabels.file;
-
-      const textWrap = document.createElement('div');
-      textWrap.style.minWidth = '0';
 
       const title = document.createElement('div');
       title.className = 'prompt-name';
@@ -1720,76 +1404,43 @@ export class AgentSlayerSidebarProvider implements vscode.WebviewViewProvider {
 
       const description = document.createElement('div');
       description.className = 'prompt-description';
-      description.textContent = prompt.description;
+      description.textContent = shortDescription(prompt.description);
 
-      const meta = document.createElement('div');
-      meta.className = 'prompt-meta';
-
-      const cat = document.createElement('span');
-      cat.className = 'pill';
-      cat.textContent = prompt.category || 'General';
-      meta.append(cat);
-
-      (Array.isArray(prompt.tags) ? prompt.tags : []).slice(0, 2).forEach((tagText) => {
+      const tagRow = document.createElement('div');
+      tagRow.className = 'prompt-tags';
+      (Array.isArray(prompt.tags) ? prompt.tags : []).slice(0, 3).forEach((tagText) => {
         const t = document.createElement('span');
-        t.className = 'pill';
-        t.textContent = tagText;
-        meta.append(t);
+        t.className = 'tag-pill';
+        t.textContent = String(tagText);
+        tagRow.append(t);
       });
 
-      textWrap.append(title, description, meta);
-      head.append(icon, textWrap);
+      if (isActive && tagRow.children.length) {
+        tagRow.style.display = 'inline-flex';
+      }
 
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'activate-btn' + (isActive ? ' is-active' : '');
-      button.textContent = isActive ? 'Active' : 'Activate';
-      button.dataset.fileName = prompt.fileName;
-      button.addEventListener('click', (event) => {
-        createRipple(event.currentTarget, event);
-        const fileName = button.dataset.fileName;
-        if (!fileName || fileName === appState.activePromptFile) {
+      head.append(title, description, tagRow);
+
+      card.addEventListener('click', (event) => {
+        if (!(event.target instanceof HTMLElement)) {
           return;
         }
 
-        setActivePrompt(fileName, true);
-        vscode.postMessage({ command: 'activatePrompt', fileName });
+        if (prompt.fileName === appState.activePromptFile) {
+          return;
+        }
+
+        setActivePrompt(prompt.fileName);
+        vscode.postMessage({ command: 'activatePrompt', fileName: prompt.fileName });
       });
 
-      card.append(menuTrigger, menu, head);
+      card.addEventListener('contextmenu', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        openContextMenu(prompt.fileName, event.clientX, event.clientY);
+      });
 
-      if (deleteConfirmFile === prompt.fileName) {
-        const confirm = document.createElement('div');
-        confirm.className = 'delete-confirm';
-        confirm.innerHTML = '<div>Delete? [Yes] [No]</div>';
-
-        const actions = document.createElement('div');
-        actions.className = 'confirm-actions';
-
-        const noBtn = document.createElement('button');
-        noBtn.type = 'button';
-        noBtn.className = 'confirm-btn no';
-        noBtn.textContent = 'No';
-        noBtn.addEventListener('click', () => {
-          deleteConfirmFile = '';
-          renderPromptList();
-        });
-
-        const yesBtn = document.createElement('button');
-        yesBtn.type = 'button';
-        yesBtn.className = 'confirm-btn yes';
-        yesBtn.textContent = 'Yes';
-        yesBtn.addEventListener('click', () => {
-          deleteConfirmFile = '';
-          vscode.postMessage({ command: 'deletePrompt', fileName: prompt.fileName });
-        });
-
-        actions.append(noBtn, yesBtn);
-        confirm.append(actions);
-        card.append(confirm);
-      } else {
-        card.append(button);
-      }
+      card.append(head);
 
       return card;
     }
@@ -1814,7 +1465,7 @@ export class AgentSlayerSidebarProvider implements vscode.WebviewViewProvider {
       });
     }
 
-    function setActivePrompt(fileName, animate) {
+    function setActivePrompt(fileName) {
       const activePrompt = appState.prompts.find((prompt) => prompt.fileName === fileName);
       if (!activePrompt) {
         return;
@@ -1835,35 +1486,7 @@ export class AgentSlayerSidebarProvider implements vscode.WebviewViewProvider {
         const fileName = card.dataset.fileName;
         const active = fileName === appState.activePromptFile;
         card.classList.toggle('active', active);
-
-        const button = card.querySelector('.activate-btn');
-        if (!(button instanceof HTMLButtonElement)) {
-          return;
-        }
-
-        button.classList.toggle('is-active', active);
-        button.textContent = active ? 'Active' : 'Activate';
       });
-    }
-
-    function createRipple(target, event) {
-      if (!(target instanceof HTMLElement) || !(event instanceof MouseEvent)) {
-        return;
-      }
-
-      const rect = target.getBoundingClientRect();
-      const ripple = document.createElement('span');
-      const size = Math.max(rect.width, rect.height);
-
-      ripple.className = 'ripple';
-      ripple.style.width = String(size) + 'px';
-      ripple.style.height = String(size) + 'px';
-      ripple.style.left = String(event.clientX - rect.left - size / 2) + 'px';
-      ripple.style.top = String(event.clientY - rect.top - size / 2) + 'px';
-
-      target.querySelectorAll('.ripple').forEach((existing) => existing.remove());
-      target.append(ripple);
-      window.setTimeout(() => ripple.remove(), 450);
     }
 
     function showToast(message, isError) {
@@ -1901,9 +1524,6 @@ export class AgentSlayerSidebarProvider implements vscode.WebviewViewProvider {
 
     function closeEditor() {
       modalBackdrop.classList.remove('open');
-      stopTypingAnimation();
-      currentEnhanceRequest = '';
-      aiEnhanceBtn.classList.remove('loading');
     }
 
     function collectFormPayload() {
@@ -1934,83 +1554,74 @@ export class AgentSlayerSidebarProvider implements vscode.WebviewViewProvider {
       }
     }
 
-    function requestEnhance() {
-      const content = promptContentInput.value.trim();
-      if (!content) {
-        showToast('Add prompt content before AI Enhance.', true);
-        return;
-      }
-
-      currentEnhanceRequest = 'req-' + String(Date.now()) + '-' + String(Math.random());
-      typingQueue = '';
-      promptContentInput.value = '';
-      aiEnhanceBtn.classList.add('loading');
-      vscode.postMessage({
-        command: 'enhancePrompt',
-        requestId: currentEnhanceRequest,
-        content
-      });
-    }
-
-    function startTypingAnimation() {
-      if (typingTimer) {
-        return;
-      }
-
-      typingTimer = window.setInterval(() => {
-        if (!typingQueue) {
-          if (!currentEnhanceRequest) {
-            stopTypingAnimation();
-          }
-          return;
-        }
-
-        const next = typingQueue.slice(0, 2);
-        typingQueue = typingQueue.slice(next.length);
-        promptContentInput.value += next;
-        promptContentInput.scrollTop = promptContentInput.scrollHeight;
-      }, 12);
-    }
-
-    function stopTypingAnimation() {
-      if (typingTimer) {
-        window.clearInterval(typingTimer);
-        typingTimer = 0;
-      }
-    }
-
     document.addEventListener('click', (event) => {
       if (!(event.target instanceof HTMLElement)) {
+        closeContextMenu();
         return;
       }
 
-      if (!event.target.closest('.menu') && !event.target.closest('.menu-trigger')) {
-        if (openMenuFile) {
-          openMenuFile = '';
-          renderPromptList();
-        }
+      if (!event.target.closest('#context-menu')) {
+        closeContextMenu();
+      }
+    });
+
+    window.addEventListener('resize', closeContextMenu);
+    window.addEventListener('scroll', closeContextMenu, true);
+
+    contextActivate.addEventListener('click', () => {
+      if (!contextFileName) {
+        return;
+      }
+
+      const fileName = contextFileName;
+      closeContextMenu();
+      if (fileName === appState.activePromptFile) {
+        return;
+      }
+
+      setActivePrompt(fileName);
+      vscode.postMessage({ command: 'activatePrompt', fileName });
+    });
+
+    contextEdit.addEventListener('click', () => {
+      if (!contextFileName) {
+        return;
+      }
+
+      const prompt = appState.prompts.find((item) => item.fileName === contextFileName);
+      closeContextMenu();
+      if (prompt) {
+        openEditor('edit', prompt);
+      }
+    });
+
+    contextDelete.addEventListener('click', () => {
+      if (!contextFileName) {
+        return;
+      }
+
+      const fileName = contextFileName;
+      closeContextMenu();
+      if (window.confirm('Delete this prompt?')) {
+        vscode.postMessage({ command: 'deletePrompt', fileName });
       }
     });
 
     syncBtn.addEventListener('click', (event) => {
-      createRipple(syncBtn, event);
       vscode.postMessage({ command: 'sync' });
     });
 
     marketplaceBtn.addEventListener('click', (event) => {
-      createRipple(marketplaceBtn, event);
       vscode.postMessage({ command: 'openMarketplace' });
     });
 
-    createFab.addEventListener('click', (event) => {
-      createRipple(createFab, event);
+    createBtn.addEventListener('click', () => {
       openEditor('create');
     });
 
     modalClose.addEventListener('click', closeEditor);
     modalCancel.addEventListener('click', closeEditor);
     modalSave.addEventListener('click', savePrompt);
-    aiEnhanceBtn.addEventListener('click', requestEnhance);
 
     modalBackdrop.addEventListener('click', (event) => {
       if (event.target === modalBackdrop) {
@@ -2025,8 +1636,31 @@ export class AgentSlayerSidebarProvider implements vscode.WebviewViewProvider {
       }
 
       if (message.command === 'state' && message.state) {
-        appState = message.state;
-        renderPromptList(message.pulseFile || '');
+        const previous = appState;
+        const nextState = message.state;
+        const previousPrompts = Array.isArray(previous.prompts) ? previous.prompts : [];
+        const nextPrompts = Array.isArray(nextState.prompts) ? nextState.prompts : [];
+        const listChanged =
+          previousPrompts.length !== nextPrompts.length ||
+          previousPrompts.some((item, index) => {
+            const next = nextPrompts[index];
+            return (
+              !next ||
+              item.fileName !== next.fileName ||
+              item.name !== next.name ||
+              item.description !== next.description ||
+              item.category !== next.category
+            );
+          });
+
+        appState = nextState;
+        closeContextMenu();
+
+        if (message.pulseFile || listChanged) {
+          renderPromptList(message.pulseFile || '');
+        } else {
+          updatePromptSelection();
+        }
 
         if (modalBackdrop.classList.contains('open') && !message.pulseFile) {
           // keep modal open while editing
@@ -2037,28 +1671,6 @@ export class AgentSlayerSidebarProvider implements vscode.WebviewViewProvider {
 
       if (message.command === 'toast') {
         showToast(message.message || '', !!message.isError);
-      }
-
-      if (message.command === 'enhanceStart' && message.requestId === currentEnhanceRequest) {
-        typingQueue = '';
-        promptContentInput.value = '';
-        startTypingAnimation();
-      }
-
-      if (message.command === 'enhanceChunk' && message.requestId === currentEnhanceRequest) {
-        typingQueue += String(message.chunk || '');
-        startTypingAnimation();
-      }
-
-      if (message.command === 'enhanceDone' && message.requestId === currentEnhanceRequest) {
-        currentEnhanceRequest = '';
-        aiEnhanceBtn.classList.remove('loading');
-      }
-
-      if (message.command === 'enhanceError' && message.requestId === currentEnhanceRequest) {
-        currentEnhanceRequest = '';
-        aiEnhanceBtn.classList.remove('loading');
-        showToast(message.error || 'AI enhancement failed.', true);
       }
     });
 
