@@ -2,6 +2,22 @@
 
 All notable changes to Agent Slayer are documented here.
 
+## [1.1.0] - 2026-04-03
+
+### Added
+
+- Prompt card context menu on right click for Activate, Edit, and Delete actions
+- Version archive convention under `versions/` for downloadable VSIX builds
+
+### Changed
+
+- Sidebar visuals now fully align with VS Code theme variables
+- Prompt selection updates without full list rerender for smoother interactions
+
+### Removed
+
+- AI Enhance from Create/Edit prompt modal and related backend handling
+
 ## [1.0.0] - 2026-03-19
 
 ### Added

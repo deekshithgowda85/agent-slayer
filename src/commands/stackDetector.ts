@@ -72,12 +72,12 @@ export class StackDetector implements vscode.Disposable {
   private async detectForFolder(folder: vscode.WorkspaceFolder): Promise<void> {
     try {
       const state = this.getDetectionState();
-      if (state[folder.uri.fsPath]) {
-        return;
-      }
-
+      const folderPath = folder.uri.fsPath;
+      const previous = state[folderPath];
       const result = await this.detectStack(folder);
-      state[folder.uri.fsPath] = {
+      const hasChanged = this.stackChanged(previous?.stack ?? [], result.stack);
+
+      state[folderPath] = {
         stack: result.stack,
         detectedAt: new Date().toISOString(),
       };
@@ -87,10 +87,23 @@ export class StackDetector implements vscode.Disposable {
         return;
       }
 
-      await this.showNotificationPanel(result);
+      if (!previous || hasChanged) {
+        await this.showNotificationPanel(result);
+      }
     } catch (error) {
       log('Stack detector failed for folder ' + folder.name + ': ' + String(error));
     }
+  }
+
+  private stackChanged(previous: string[], next: string[]): boolean {
+    const sortedPrevious = [...previous].sort();
+    const sortedNext = [...next].sort();
+
+    if (sortedPrevious.length !== sortedNext.length) {
+      return true;
+    }
+
+    return sortedPrevious.some((value, index) => value !== sortedNext[index]);
   }
 
   private async detectStack(

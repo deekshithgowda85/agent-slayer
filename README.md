@@ -1,41 +1,52 @@
-# Agent Slayer ⚔️
+<p align="center">
+	<img
+		src="https://capsule-render.vercel.app/api?type=waving&height=220&color=0:0f172a,30:1e293b,65:0b6bcb,100:14b8a6&text=Agent%20Slayer&fontColor=ffffff&fontSize=50&fontAlignY=36&desc=Your%20Rules.%20Copilot%20Obeys.&descAlignY=58"
+		alt="Agent Slayer header"
+	/>
+</p>
 
-> Your rules. Copilot obeys.
+<p align="center">
+	<a href="https://marketplace.visualstudio.com/items?itemName=deekshithgowda85.agent-slayer"><img src="https://img.shields.io/badge/VS%20Code-Marketplace-0b6bcb?style=for-the-badge&logo=visualstudiocode&logoColor=white" alt="VS Code Marketplace" /></a>
+	<a href="https://github.com/deekshithgowda85/agent-slayer/releases"><img src="https://img.shields.io/github/v/release/deekshithgowda85/agent-slayer?style=for-the-badge&color=14b8a6" alt="Latest Release" /></a>
+	<a href="https://github.com/deekshithgowda85/agent-slayer"><img src="https://img.shields.io/github/stars/deekshithgowda85/agent-slayer?style=for-the-badge&color=1d4ed8" alt="GitHub Stars" /></a>
+	<a href="LICENSE"><img src="https://img.shields.io/github/license/deekshithgowda85/agent-slayer?style=for-the-badge&color=334155" alt="License" /></a>
+</p>
 
-Stop explaining your stack to Copilot on every single project.
-Install once → setup wizard opens → pick your framework and database →
-Copilot follows your rules automatically, forever.
+<p align="center">
+	<img
+		src="https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=600&size=19&pause=1100&color=0B6BCB&center=true&vCenter=true&width=940&lines=Install+once.+Keep+your+coding+rules+everywhere.;Auto-detect+stack+on+workspace+open.;Prompt+Sidebar+%2B+Marketplace+%2B+Global+Copilot+instructions."
+		alt="Animated summary"
+	/>
+</p>
 
----
+# Agent Slayer
 
-## Why Agent Slayer?
+Agent Slayer is a VS Code extension that configures and enforces your Copilot workflow across projects.
+It combines setup automation, stack-aware prompt recommendations, and a prompt marketplace in one extension.
 
-Every time you start a new project Copilot forgets everything.
-It doesn't know your stack. It doesn't know your patterns.
-It doesn't know you always use async/await, org_id scoping,
-Pydantic v2, or that errors must return `{ error, code, detail }`.
+## Quick Links
 
-You end up repeating yourself. Every. Single. Project.
+- [Downloads](#downloads)
+- [What It Does](#what-it-does)
+- [Auto-Detect Stack](#auto-detect-stack)
+- [Commands](#commands)
+- [Configuration](#configuration)
+- [Version Archive](#version-archive)
 
-**Agent Slayer fixes this.**
+## Downloads
 
-Configure once. Works everywhere. Copilot finally knows who's boss.
+- VS Code Marketplace: https://marketplace.visualstudio.com/items?itemName=deekshithgowda85.agent-slayer
+- Direct VSIX download (v1.1.0): [versions/agent-slayer-1.1.0.vsix](versions/agent-slayer-1.1.0.vsix)
+- All packaged versions: [versions/](versions/)
 
----
+## What It Does
 
-## Quick Start
+1. Runs setup once and stores your preferred stack conventions.
+2. Applies global Copilot instructions automatically on startup.
+3. Auto-detects project stack and recommends matching prompts.
+4. Lets you manage prompts from a sidebar and marketplace.
 
-1. Install **Agent Slayer** from the Extensions panel
-2. Setup wizard opens automatically
-3. Pick your framework, database, and CI/CD platform
-4. Click **Apply & Install**
-5. Done — Copilot now follows your rules on every project
-
----
-
-## Supported Stacks
-
-### Frameworks
+### Supported Stacks
 
 | Framework    | Language             |
 | ------------ | -------------------- |
@@ -44,91 +55,48 @@ Configure once. Works everywhere. Copilot finally knows who's boss.
 | Express      | Node.js / TypeScript |
 | Spring Boot  | Java / Kotlin        |
 
-### Databases
-
-| Database   | ORM / Driver                   |
+| Database   | Typical ORM / Driver           |
 | ---------- | ------------------------------ |
 | PostgreSQL | AsyncSQLAlchemy / Prisma / JPA |
 | MySQL      | AsyncSQLAlchemy / Prisma / JPA |
 | MongoDB    | Motor / Mongoose / Spring Data |
 
-### CI/CD Platforms
+### Prompt Skills
 
-- GitHub Actions
-- GitLab CI
-- Jenkins
-- CircleCI
-- Azure Pipelines
+| Prompt              | Purpose                            |
+| ------------------- | ---------------------------------- |
+| `/new-endpoint`     | Build complete API endpoint flow   |
+| `/new-feature`      | Build end-to-end feature slices    |
+| `/db-query`         | Create safe, scoped query patterns |
+| `/security-review`  | Run security-focused review pass   |
+| `/write-tests`      | Generate broad test coverage       |
+| `/create-migration` | Plan and generate migrations       |
+| `/code-review`      | Perform deep review with findings  |
+| `/debug-and-fix`    | Diagnose and fix runtime failures  |
 
----
+## Auto-Detect Stack
 
-## Features
+Auto-detection initializes during extension activation and checks all open workspace folders.
+It also runs when a new folder is added to a multi-root workspace.
 
-### Setup Wizard
+Behavior:
 
-Opens automatically on first install. Single page UI — pick your
-framework, database, CI/CD platform and toggle rules on/off.
-Reopen anytime via Command Palette.
-
-### Global Copilot Instructions
-
-Automatically injects your stack rules into every Copilot suggestion
-across all projects. No per-project config. No manual prompting.
-
-### 8 Skill Prompt Files
-
-Reusable step-by-step workflows for every common task.
-
-| Command             | What it does                                                  |
-| ------------------- | ------------------------------------------------------------- |
-| `/new-endpoint`     | Full API endpoint — schema → model → CRUD → router → tests    |
-| `/new-feature`      | End-to-end feature — plan → data → API → logic → tests → docs |
-| `/db-query`         | Safe scoped database queries with N+1 prevention              |
-| `/security-review`  | Full security audit — CRITICAL/HIGH/MEDIUM/LOW with fixes     |
-| `/write-tests`      | Complete test coverage — happy path + 401 + 403 + 404 + 422   |
-| `/create-migration` | Alembic / Prisma / Flyway migrations with rollback            |
-| `/code-review`      | Deep code review — bugs, performance, design issues           |
-| `/debug-and-fix`    | Stack trace reading + error diagnosis + fixes                 |
-
-### @skills Chat Participant
-
-Examples:
-
-- `@skills create a new endpoint for sprint tracking`
-- `@skills review this function for security issues`
-- `@skills write tests for the auth module`
-- `@skills debug this stack trace`
-
-### Multi-Tenant Scoping
-
-Toggle on org_id scoping — Copilot automatically adds
-`WHERE org_id = :org_id` to every DB query. org_id always
-injected from JWT, never from request body.
-
-### Live Config Reload
-
-Change any setting → Copilot instructions update instantly.
-No restart needed.
-
----
+- Detects stack markers from `package.json`, `requirements.txt`, `go.mod`, `Cargo.toml`, and `pom.xml`.
+- Updates detection snapshot on startup.
+- Shows the recommendation panel when a workspace is detected for the first time or when stack composition changes.
 
 ## Commands
 
 | Command                                     | Description                         |
 | ------------------------------------------- | ----------------------------------- |
-| `Agent Slayer: Open Setup`                  | Open the setup wizard               |
+| `Agent Slayer: Open Setup`                  | Open setup wizard                   |
 | `Agent Slayer: Re-run Setup`                | Reset and reopen setup wizard       |
-| `Agent Slayer: Install Global Instructions` | Reapply all Copilot rules           |
-| `Agent Slayer: Install Prompt Files`        | Reinstall skill prompt files        |
-| `Agent Slayer: Reset to Defaults`           | Clear all Copilot instructions      |
-| `Agent Slayer: Show Status`                 | Show current config in output panel |
-
----
+| `Agent Slayer: Install Global Instructions` | Reapply global instructions         |
+| `Agent Slayer: Install Prompt Files`        | Reinstall prompt files              |
+| `Agent Slayer: Reset to Defaults`           | Clear configured instruction state  |
+| `Agent Slayer: Show Status`                 | Print current state in output panel |
 
 ## Configuration
-
-All settings are written automatically by the Setup Wizard.
-You can also edit them manually in VS Code settings:
 
 | Setting                            | Default      | Options                                  |
 | ---------------------------------- | ------------ | ---------------------------------------- |
@@ -136,56 +104,30 @@ You can also edit them manually in VS Code settings:
 | `agentSlayer.stack`                | `fastapi`    | fastapi, django, flask, nodejs           |
 | `agentSlayer.database`             | `postgresql` | postgresql, mysql, mongodb, sqlite       |
 | `agentSlayer.cicd`                 | `["github"]` | github, gitlab, jenkins, circleci, azure |
-| `agentSlayer.multiTenant`          | `true`       | true / false                             |
-| `agentSlayer.strictErrorFormat`    | `true`       | true / false                             |
-| `agentSlayer.autoInstallOnStartup` | `true`       | true / false                             |
+| `agentSlayer.multiTenant`          | `true`       | true, false                              |
+| `agentSlayer.strictErrorFormat`    | `true`       | true, false                              |
+| `agentSlayer.autoInstallOnStartup` | `true`       | true, false                              |
 | `agentSlayer.orgIdField`           | `org_id`     | any string                               |
 | `agentSlayer.testFramework`        | `pytest`     | pytest, jest, unittest                   |
 
----
+## Version Archive
 
-## How Skill Files Work
-
-After install, prompt files are copied to your global VS Code
-prompts folder. Use them in Copilot Chat:
-
-- `/new-endpoint` create POST /sprints with name and start_date
-- `/write-tests` generate tests for routers/sprints.py
-- `/security-review` (select code first, then run this)
-- `/debug-and-fix` (paste your stack trace)
-
-Files are installed at:
-
-- **Windows:** `%APPDATA%\\Code\\User\\prompts\\`
-- **Mac:** `~/Library/Application Support/Code/User/prompts/`
-- **Linux:** `~/.config/Code/User/prompts/`
-
----
+Packaged VSIX files are stored in [versions/](versions/) for direct repository downloads.
+See [versions/README.md](versions/README.md) for a version-by-version index.
 
 ## Requirements
 
 - VS Code 1.100.0 or higher
 - GitHub Copilot extension installed and active
 
----
-
 ## Release Notes
 
 See [CHANGELOG.md](CHANGELOG.md).
 
----
+## Contributing
+
+Issues and PRs are welcome: https://github.com/deekshithgowda85/agent-slayer/issues
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
-
----
-
-## Contributing
-
-Issues and PRs welcome at
-https://github.com/agentslayer/agent-slayer
-
----
-
-_Agent Slayer — Your rules. Copilot obeys._
+MIT. See [LICENSE](LICENSE).
