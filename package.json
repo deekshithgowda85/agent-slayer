@@ -1,16 +1,16 @@
 {
   "name": "agent-slayer",
-  "displayName": "Agent Slayer — FastAPI, Django, Express, Spring",
+  "displayName": "Agent Slayer — Frontend & Backend Setup + Copilot Instructions",
   "description": "Agent Slayer: setup wizard + global Copilot instructions, prompt skills and coding rules for Python, JS, and Java projects",
   "version": "1.0.0",
   "publisher": "deekshithgowda85",
   "repository": {
     "type": "git",
-    "url": "https://github.com/agentslayer/agent-slayer.git"
+    "url": "https://github.com/deekshithgowda85/agent-slayer.git"
   },
-  "homepage": "https://github.com/agentslayer/agent-slayer#readme",
+  "homepage": "https://github.com/deekshithgowda85/agent-slayer/blob/main/README.md",
   "bugs": {
-    "url": "https://github.com/agentslayer/agent-slayer/issues"
+    "url": "https://github.com/deekshithgowda85/agent-slayer/issues"
   },
   "engines": { "vscode": "^1.100.0" },
   "categories": ["AI", "Programming Languages", "Other"],
@@ -43,8 +43,33 @@
       {
         "command": "copilotSkills.showStatus",
         "title": "Agent Slayer: Show Status"
+      },
+      {
+        "command": "agentSlayer.openMarketplace",
+        "title": "Agent Slayer: Open Prompt Marketplace"
       }
     ],
+
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "agentSlayer",
+          "title": "Agent Slayer",
+          "icon": "media/agent-slayer-activity.svg"
+        }
+      ]
+    },
+
+    "views": {
+      "agentSlayer": [
+        {
+          "id": "agentSlayer.sidebar",
+          "name": "Prompt Sidebar",
+          "type": "webview",
+          "icon": "media/agent-slayer-activity.svg"
+        }
+      ]
+    },
 
     "customEditors": [
       {
@@ -122,6 +147,16 @@
           "default": "pytest",
           "enum": ["pytest", "jest", "unittest"],
           "description": "Primary test framework"
+        },
+        "agentSlayer.marketplaceUsername": {
+          "type": "string",
+          "default": "",
+          "description": "GitHub username/org for raw marketplace feed (agent-slayer-marketplace/prompts.json)"
+        },
+        "agentSlayer.marketplaceFeedUrl": {
+          "type": "string",
+          "default": "",
+          "description": "Optional full marketplace feed URL (GitHub blob/raw JSON). If empty, Agent Slayer derives feed URLs from package.json repository URL."
         }
       }
     },

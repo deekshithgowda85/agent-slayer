@@ -5,33 +5,15 @@ import { Config } from '../config';
 import { getPromptsDestPath } from './installPrompts';
 import { log } from '../utils/logger';
 
-const INTENT_MAP: Record<string, string> = {
-  endpoint:  'new-endpoint.prompt.md',
-  route:     'new-endpoint.prompt.md',
-  api:       'new-endpoint.prompt.md',
-  test:      'write-tests.prompt.md',
-  spec:      'write-tests.prompt.md',
-  coverage:  'write-tests.prompt.md',
-  review:    'security-review.prompt.md',
-  security:  'security-review.prompt.md',
-  audit:     'security-review.prompt.md',
-  migration: 'create-migration.prompt.md',
-  schema:    'create-migration.prompt.md',
-  alter:     'create-migration.prompt.md',
-  feature:   'new-feature.prompt.md',
-  build:     'new-feature.prompt.md',
-  query:     'db-query.prompt.md',
-  select:    'db-query.prompt.md',
-  fetch:     'db-query.prompt.md',
-};
-
-function detectIntent(message: string): string | null {
-  const lower = message.toLowerCase();
-  for (const [keyword, file] of Object.entries(INTENT_MAP)) {
-    if (lower.includes(keyword)) return file;
-  }
-  return null;
+interface PromptMeta {
+  file: string;
+  name: string;
+  description: string;
+  category: string;
+  tags: string[];
 }
+
+const DEFAULT_FALLBACK_PROMPT = 'debug-and-fix.prompt.md';
 
 function buildConfigContext(config: Config): string {
   return `FE:${config.frontendFramework} Stack:${config.stack} DB:${config.database} MultiTenant:${config.multiTenant} OrgField:${config.orgIdField} Tests:${config.testFramework}`;
@@ -44,6 +26,131 @@ async function loadPromptFile(fileName: string): Promise<string | null> {
   } catch { return null; }
 }
 
+function tokenize(input: string): string[] {
+  return input
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 3);
+}
+
+function parseTags(raw: string): string[] {
+  if (!raw) return [];
+  if (raw.startsWith('[') && raw.endsWith(']')) {
+    return raw
+      .slice(1, -1)
+      .split(',')
+      .map((item) => item.trim().replace(/^['"]|['"]$/g, ''))
+      .filter(Boolean);
+  }
+
+  return raw
+    .split(',')
+    .map((item) => item.trim().replace(/^['"]|['"]$/g, ''))
+    .filter(Boolean);
+}
+
+function parsePromptFrontmatter(file: string, content: string): PromptMeta {
+  const fallbackName = file.replace(/\.prompt\.md$/i, '').replace(/[-_]+/g, ' ');
+  const meta: PromptMeta = {
+    file,
+    name: fallbackName,
+    description: '',
+    category: 'General',
+    tags: [],
+  };
+
+  const match = content.match(/^---\s*\r?\n([\s\S]*?)\r?\n---/);
+  if (!match) return meta;
+
+  const lines = match[1].split(/\r?\n/);
+  let readingTagsList = false;
+  for (const row of lines) {
+    const line = row.trim();
+    if (!line) continue;
+
+    if (readingTagsList) {
+      if (line.startsWith('- ')) {
+        meta.tags.push(line.slice(2).trim());
+        continue;
+      }
+
+      readingTagsList = false;
+    }
+
+    const kv = line.match(/^([a-zA-Z0-9_-]+):\s*(.*)$/);
+    if (!kv) continue;
+
+    const key = kv[1].toLowerCase();
+    const value = kv[2].trim().replace(/^['"]|['"]$/g, '');
+
+    if (key === 'name' && value) meta.name = value;
+    if (key === 'description' && value) meta.description = value;
+    if (key === 'category' && value) meta.category = value;
+    if (key === 'tags') {
+      if (!value) {
+        meta.tags = [];
+        readingTagsList = true;
+      } else {
+        meta.tags = parseTags(value);
+      }
+    }
+  }
+
+  return meta;
+}
+
+async function loadPromptCatalog(): Promise<PromptMeta[]> {
+  try {
+    const promptsDir = getPromptsDestPath();
+    const files = (await fs.readdir(promptsDir)).filter((file) => file.endsWith('.prompt.md'));
+    const metas: PromptMeta[] = [];
+
+    for (const file of files) {
+      const raw = await loadPromptFile(file);
+      if (!raw) continue;
+      metas.push(parsePromptFrontmatter(file, raw));
+    }
+
+    return metas;
+  } catch {
+    return [];
+  }
+}
+
+function detectIntentFromCatalog(message: string, catalog: PromptMeta[]): string | null {
+  const messageTokens = new Set(tokenize(message));
+  if (!messageTokens.size || !catalog.length) return null;
+
+  let bestFile: string | null = null;
+  let bestScore = 0;
+
+  for (const prompt of catalog) {
+    const source = [
+      prompt.name,
+      prompt.description,
+      prompt.category,
+      prompt.file.replace(/\.prompt\.md$/i, '').replace(/[-_]+/g, ' '),
+      ...prompt.tags,
+    ].join(' ');
+
+    const promptTokens = new Set(tokenize(source));
+    let score = 0;
+    for (const token of messageTokens) {
+      if (promptTokens.has(token)) score += 1;
+    }
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestFile = prompt.file;
+    }
+  }
+
+  if (bestFile) return bestFile;
+  const fallback = catalog.find((prompt) => prompt.file === DEFAULT_FALLBACK_PROMPT);
+  return fallback ? fallback.file : catalog[0]?.file ?? null;
+}
+
 export function registerChatParticipant(
   context: vscode.ExtensionContext,
   getConfig: () => Config
@@ -54,16 +161,17 @@ export function registerChatParticipant(
       const config = getConfig();
       const configCtx = buildConfigContext(config);
       const userMessage = request.prompt.trim();
+      const catalog = await loadPromptCatalog();
 
       if (!userMessage) {
-        stream.markdown('What would you like help with? Try: *create endpoint*, *write tests*, *security review*, *new feature*, *db query*, or *migration*.');
+        stream.markdown('What would you like help with? I can route to any installed prompt automatically.');
         return;
       }
 
-      const intentFile = detectIntent(userMessage);
+      const intentFile = detectIntentFromCatalog(userMessage, catalog);
 
       if (!intentFile) {
-        stream.markdown(`I can help with:\n- \`/new-endpoint\` — create API routes\n- \`/write-tests\` — generate tests\n- \`/security-review\` — audit code\n- \`/new-feature\` — full feature build\n- \`/db-query\` — safe DB queries\n- \`/create-migration\` — Alembic migrations\n\nWhat are you trying to build?`);
+        stream.markdown('No prompt files are installed yet. Run **Agent Slayer: Install Prompt Files** first.');
         return;
       }
 

@@ -4,7 +4,10 @@ import { applyGlobalSettings, resetGlobalSettings } from './commands/applySettin
 import { installPromptFiles, getInstalledPrompts } from './commands/installPrompts';
 import { registerChatParticipant } from './commands/chatParticipant';
 import { SettingsEditorProvider } from './commands/settingsEditorProvider';
-import { createStatusBar } from './commands/statusBar';
+import { AgentSlayerSidebarProvider } from './commands/sidebarProvider';
+import { AgentContextSwitcher } from './commands/contextSwitcher';
+import { StackDetector } from './commands/stackDetector';
+import { AgentSlayerMarketplaceProvider } from './commands/marketplaceProvider';
 import { log, disposeChannel, getOutputChannel } from './utils/logger';
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
@@ -35,8 +38,30 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     log(`Custom settings editor registration failed: ${err}`);
   }
 
-  // ── Status bar shortcut ──
-  const statusItem = createStatusBar(context, getConfig);
+  // ── Sidebar + prompt-aware status bar/context switching ──
+  try {
+    context.subscriptions.push(AgentSlayerSidebarProvider.register(context));
+  } catch (err) {
+    log(`Sidebar registration failed: ${String(err)}`);
+  }
+
+  try {
+    context.subscriptions.push(AgentSlayerMarketplaceProvider.register(context));
+  } catch (err) {
+    log(`Marketplace registration failed: ${String(err)}`);
+  }
+
+  try {
+    await AgentContextSwitcher.initialize(context);
+  } catch (err) {
+    log(`Context switcher init failed: ${String(err)}`);
+  }
+
+  try {
+    await StackDetector.initialize(context);
+  } catch (err) {
+    log(`Stack detector init failed: ${String(err)}`);
+  }
 
   // ── Show setup UI on first install (as editor tab) ──
   await SettingsEditorProvider.showIfFirstInstall();
@@ -106,7 +131,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     onConfigChange(async (newConfig) => {
       log('Config changed — reapplying...');
       await applyGlobalSettings(newConfig);
-      statusItem.text = `⚡ ${newConfig.stack} · ${newConfig.database}`;
     })
   );
 

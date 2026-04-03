@@ -1,0 +1,1 @@
+export { AgentSlayerSidebarProvider } from './webviewProvider';
